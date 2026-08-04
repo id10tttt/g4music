@@ -64,6 +64,7 @@ namespace G4 {
     public class Thumbnailer : Object {
         public const int GRID_SIZE = 160;
         public const int ICON_SIZE = 48;
+        public const int DEFAULT_COVER_SIZE = 512;
 
         private HashTable<string, string> _album_covers = new HashTable<string, string> (str_hash, str_equal);
         private LruCache<Gdk.Pixbuf?> _album_pixbufs = new LruCache<Gdk.Pixbuf?> (1000);
@@ -111,7 +112,7 @@ namespace G4 {
 
             var paintable = pixbuf != null
                 ? Gdk.Texture.for_pixbuf ((!)pixbuf)
-                : create_music_text_paintable (music);
+                : create_music_default_paintable (music, size);
             if (is_small) {
                 put (music, paintable, false, size);
             } else if (pixbuf != null && paintable0 == null) {
@@ -175,27 +176,44 @@ namespace G4 {
             return pixbuf;
         }
 
-        public Gdk.Paintable create_music_text_paintable (Music music) {
-            var text = music.get_abbreviation ();
-            var color_count = BACKGROUND_COLORS.length / 2;
-            var color_index = (text.length == 0 || text == UNKNOWN_ALBUM)
-                    ? color_count - 1
-                    : str_hash (text) % (color_count - 1);
-            return create_simple_text_paintable (text, ICON_SIZE, color_index);
+        public Gdk.Paintable create_music_default_paintable (
+                Music music, int size = ICON_SIZE) {
+            var color_index = get_default_cover_color_index (music);
+            var scale = int.max (_scale_factor, 1);
+            var paintable = create_default_cover_paintable (
+                size * scale, color_index);
+            return paintable ?? new BasePaintable ();
         }
 
-        public string create_music_text_svg (Music music) {
-            var text = music.get_abbreviation ();
-            var color_count = BACKGROUND_COLORS.length / 2;
-            var color_index = (text.length == 0 || text == UNKNOWN_ALBUM)
-                    ? color_count - 1
-                    : str_hash (text) % (color_count - 1);
-            return create_text_svg ((!)_pango_context, text, color_index);
+        public string create_music_default_svg (Music music) {
+            var color_index = get_default_cover_color_index (music);
+            return create_default_cover_svg (color_index);
         }
 
         public Gdk.Paintable create_simple_text_paintable (string text, int size, uint color_index = 0x7fffffff) {
             var paintable = create_text_paintable ((!)_pango_context, text, size * _scale_factor, size * _scale_factor, color_index);
             return paintable ?? new BasePaintable ();
+        }
+
+        /**
+         * 同一专辑使用稳定配色，元数据不足时回退到中性灰。
+         */
+        private uint get_default_cover_color_index (Music music) {
+            var album = music.album.strip ();
+            var artist = music.artist_name.strip ();
+            var title = music.title.strip ();
+            var color_count = DEFAULT_COVER_COLORS.length / 2;
+
+            string color_key;
+            if (album.length > 0 && album != UNKNOWN_ALBUM) {
+                color_key = album + "\n" + artist;
+            } else if (artist.length > 0 && artist != UNKNOWN_ARTIST
+                    && title.length > 0) {
+                color_key = artist + "\n" + title;
+            } else {
+                return color_count - 1;
+            }
+            return str_hash (color_key) % (color_count - 1);
         }
 
         private void check_same_album_cover (string album_key, ref string cover_key) {

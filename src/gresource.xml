@@ -2,6 +2,7 @@
 <gresources>
   <gresource prefix="/com/github/neithern/g4music">
     <file alias="style.css">gtk/style.css</file>
+    <file>icons/scalable/actions/media-lyrics-symbolic.svg</file>
     <file>gtk/help-overlay.ui</file>
     <file>gtk/play-panel.ui</file>
     <file>gtk/preferences.ui</file>

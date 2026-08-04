@@ -29,6 +29,8 @@ namespace G4 {
         private int _view_width = 0;
         private int _view_height = 0;
         private int _visible_mode = LeafletMode.SIDEBAR;
+        private bool _content_only = false;
+        private bool _layout_dirty = false;
 
         public Leaflet () {
             _sidebar_box = _widget.add (_sidebar, "sidebar");
@@ -51,6 +53,19 @@ namespace G4 {
         public bool folded {
             get {
                 return _folded;
+            }
+        }
+
+        public bool content_only {
+            get {
+                return _content_only;
+            }
+            set {
+                if (_content_only == value)
+                    return;
+                _content_only = value;
+                _layout_dirty = true;
+                queue_allocate ();
             }
         }
 
@@ -123,9 +138,29 @@ namespace G4 {
             _view_width = width;
             _view_height = height;
 
+            var allocation = Gtk.Allocation ();
+            allocation.x = 0;
+            allocation.y = 0;
+            allocation.width = width;
+            allocation.height = height;
+
+            if (_content_only) {
+                if (_content.is_ancestor (_content_box)) {
+                    _widget.set_child (_content_box, null);
+                    _content.insert_after (this, _widget.widget);
+                }
+                _widget.widget.visible = false;
+                (_content as SizeWatcher)?.size_to_change (width, height);
+                _content.allocate_size (allocation, baseline);
+                _layout_dirty = false;
+                return;
+            }
+
+            _widget.widget.visible = true;
+
             var stack = _widget.widget;
             var folded = width < _content_min_width * 2;
-            if (_folded != folded || first) {
+            if (_folded != folded || first || _layout_dirty) {
                 _folded = folded;
                 if (folded && !_content.is_ancestor (_content_box)) {
                     _content.unparent ();
@@ -141,12 +176,7 @@ namespace G4 {
                 _widget.animate_transitions = animate;
                 notify_property ("folded");
             }
-
-            var allocation = Gtk.Allocation ();
-            allocation.x = 0;
-            allocation.y = 0;
-            allocation.width = width;
-            allocation.height = height;
+            _layout_dirty = false;
 
             if (folded) {
                 (_content as SizeWatcher)?.size_to_change (width, height);
@@ -175,7 +205,7 @@ namespace G4 {
         }
 
         public override void snapshot (Gtk.Snapshot snapshot) {
-            if (!_folded) {
+            if (!_content_only && !_folded) {
                 var size = _sidebar.get_width ();
                 var rtl = get_direction () == Gtk.TextDirection.RTL;
                 var rect = Graphene.Rect ();

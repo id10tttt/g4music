@@ -10,12 +10,16 @@ namespace G4 {
         private Gtk.Button _play = new Gtk.Button ();
         private Gtk.Button _next = new Gtk.Button ();
         private VolumeButton _volume = new VolumeButton ();
+        private Gtk.ToggleButton _lyrics = new Gtk.ToggleButton ();
+        private Gtk.ToggleButton _fullscreen = new Gtk.ToggleButton ();
         private int _duration = 0;
         private int _position = 0;
         private bool _remain_progress = false;
         private bool _seeking = false;
 
         public signal void position_seeked (double position);
+        public signal void lyrics_toggled (bool visible);
+        public signal void fullscreen_toggled (bool visible);
 
         construct {
             orientation = Gtk.Orientation.VERTICAL;
@@ -64,6 +68,8 @@ namespace G4 {
             buttons.append (_play);
             buttons.append (_next);
             buttons.append (_volume);
+            buttons.append (_lyrics);
+            buttons.append (_fullscreen);
             append (buttons);
 
             _repeat.icon_name = "media-playlist-repeat-symbolic";
@@ -98,6 +104,30 @@ namespace G4 {
             _volume.valign = Gtk.Align.CENTER;
             player.bind_property ("volume", _volume, "value", BindingFlags.SYNC_CREATE | BindingFlags.BIDIRECTIONAL);
 
+            _lyrics.valign = Gtk.Align.CENTER;
+            _lyrics.icon_name = "media-lyrics-symbolic";
+            _lyrics.tooltip_text = _("Show Lyrics");
+            _lyrics.add_css_class ("flat");
+            _lyrics.sensitive = false;
+            _lyrics.toggled.connect (() => {
+                _lyrics.tooltip_text = _lyrics.active
+                    ? _("Show Album Cover") : _("Show Lyrics");
+                lyrics_toggled (_lyrics.active);
+            });
+
+            _fullscreen.valign = Gtk.Align.CENTER;
+            _fullscreen.icon_name = "view-fullscreen-symbolic";
+            _fullscreen.tooltip_text = _("Enter Fullscreen");
+            _fullscreen.add_css_class ("flat");
+            _fullscreen.sensitive = false;
+            _fullscreen.toggled.connect (() => {
+                _fullscreen.icon_name = _fullscreen.active
+                    ? "view-restore-symbolic" : "view-fullscreen-symbolic";
+                _fullscreen.tooltip_text = _fullscreen.active
+                    ? _("Exit Fullscreen") : _("Enter Fullscreen");
+                fullscreen_toggled (_fullscreen.active);
+            });
+
             player.duration_changed.connect (on_duration_changed);
             player.position_updated.connect (on_position_changed);
             player.state_changed.connect (on_state_changed);
@@ -117,6 +147,53 @@ namespace G4 {
         public double position {
             get {
                 return _seek.get_value ();
+            }
+        }
+
+        public bool lyrics_visible {
+            get {
+                return _lyrics.active;
+            }
+            set {
+                if (_lyrics.active != value)
+                    _lyrics.active = value;
+            }
+        }
+
+        public bool lyrics_enabled {
+            get {
+                return _lyrics.sensitive;
+            }
+            set {
+                _lyrics.sensitive = value;
+            }
+        }
+
+        public bool lyrics_button_visible {
+            get {
+                return _lyrics.visible;
+            }
+            set {
+                _lyrics.visible = value;
+            }
+        }
+
+        public bool fullscreen_visible {
+            get {
+                return _fullscreen.active;
+            }
+            set {
+                if (_fullscreen.active != value)
+                    _fullscreen.active = value;
+            }
+        }
+
+        public bool fullscreen_enabled {
+            get {
+                return _fullscreen.sensitive;
+            }
+            set {
+                _fullscreen.sensitive = value;
             }
         }
 

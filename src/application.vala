@@ -672,7 +672,7 @@ namespace G4 {
                         if (image != null) {
                             yield save_sample_to_file_async (file, (!)image);
                         } else {
-                            var svg = _thumbnailer.create_music_text_svg (music);
+                            var svg = _thumbnailer.create_music_default_svg (music);
                             yield save_text_to_file_async (file, svg);
                         }
                         if (strcmp (cover_uri, _cover_tmp_file?.get_uri ()) != 0) {

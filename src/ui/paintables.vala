@@ -271,6 +271,16 @@ namespace G4 {
         0xffc0bfbcu, 0xff6e6d71u,  // gray
     };
 
+    public const uint32[] DEFAULT_COVER_COLORS = {
+        0xff607586u, 0xff2e3d48u,  // blue gray
+        0xff5f7b78u, 0xff304441u,  // teal gray
+        0xff737963u, 0xff3b4034u,  // olive gray
+        0xff806f5du, 0xff44382fu,  // brown gray
+        0xff766278u, 0xff3e3341u,  // plum gray
+        0xff7b6268u, 0xff423338u,  // rose gray
+        0xff6d7178u, 0xff373a3fu,  // neutral gray
+    };
+
     public Gdk.RGBA color_from_uint (uint color) {
         var c = Gdk.RGBA ();
         c.alpha = ((color >> 24) & 0xff) / 255f;
@@ -278,6 +288,48 @@ namespace G4 {
         c.green = ((color >> 8) & 0xff) / 255f;
         c.blue = (color & 0xff) / 255f;
         return c;
+    }
+
+    /**
+     * 创建低饱和渐变与唱片圆环组成的缺省封面。
+     */
+    public Gdk.Paintable? create_default_cover_paintable (int size, uint color_index) {
+        size = int.max (size, 1);
+        var color_count = DEFAULT_COVER_COLORS.length / 2;
+        var index = color_index.clamp (0, color_count - 1);
+        var color1 = color_from_uint (DEFAULT_COVER_COLORS[index * 2]);
+        var color2 = color_from_uint (DEFAULT_COVER_COLORS[index * 2 + 1]);
+
+        var snapshot = new Gtk.Snapshot ();
+        var rect = Graphene.Rect ();
+        rect.init (0, 0, size, size);
+        Gsk.ColorStop[] stops = { { 0, color1 }, { 0.58f, color2 }, { 1, color1 } };
+        snapshot.append_linear_gradient (
+            rect, rect.get_top_left (), rect.get_bottom_right (), stops);
+
+        var context = snapshot.append_cairo (rect);
+        var center = size * 0.5;
+        var full_circle = Math.PI * 2;
+
+        context.set_source_rgba (1, 1, 1, 0.055);
+        context.arc (center, center, size * 0.32, 0, full_circle);
+        context.fill ();
+
+        context.set_line_width (double.max (1, size * 0.009));
+        context.set_source_rgba (1, 1, 1, 0.11);
+        foreach (var ratio in new double[] { 0.14, 0.21, 0.28, 0.32 }) {
+            context.arc (center, center, size * ratio, 0, full_circle);
+            context.stroke ();
+        }
+
+        context.set_source_rgba (0, 0, 0, 0.16);
+        context.arc (center, center, size * 0.075, 0, full_circle);
+        context.fill ();
+        context.set_source_rgba (1, 1, 1, 0.42);
+        context.arc (center, center, size * 0.025, 0, full_circle);
+        context.fill ();
+
+        return snapshot.free_to_paintable (rect.size);
     }
 
     public Gdk.Paintable? create_blur_paintable (Gtk.Widget widget, Gdk.Paintable paintable,
@@ -381,6 +433,39 @@ namespace G4 {
         var x = (width - logic_rect.width) * 0.5f;
         var y = - ink_rect.y + (height + logic_rect.height) * 0.5f;
         return TEXT_SVG_FORMAT.printf (c1, c2, c1, x, y, text);
+    }
+
+    public unowned string DEFAULT_COVER_SVG_FORMAT = """
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="background" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#%06x"/>
+            <stop offset="0.58" stop-color="#%06x"/>
+            <stop offset="1" stop-color="#%06x"/>
+        </linearGradient>
+    </defs>
+    <rect width="512" height="512" rx="32" fill="url(#background)"/>
+    <circle cx="256" cy="256" r="164" fill="#ffffff" fill-opacity="0.055"/>
+    <g fill="none" stroke="#ffffff" stroke-opacity="0.11" stroke-width="5">
+        <circle cx="256" cy="256" r="72"/>
+        <circle cx="256" cy="256" r="108"/>
+        <circle cx="256" cy="256" r="143"/>
+        <circle cx="256" cy="256" r="164"/>
+    </g>
+    <circle cx="256" cy="256" r="38" fill="#000000" fill-opacity="0.16"/>
+    <circle cx="256" cy="256" r="13" fill="#ffffff" fill-opacity="0.42"/>
+</svg>
+    """;
+
+    /**
+     * 创建与运行时 Paintable 一致的缺省封面 SVG。
+     */
+    public string create_default_cover_svg (uint color_index) {
+        var color_count = DEFAULT_COVER_COLORS.length / 2;
+        var index = color_index.clamp (0, color_count - 1);
+        var color1 = DEFAULT_COVER_COLORS[index * 2] & 0x00ffffffu;
+        var color2 = DEFAULT_COVER_COLORS[index * 2 + 1] & 0x00ffffffu;
+        return DEFAULT_COVER_SVG_FORMAT.printf (color1, color2, color1);
     }
 
     public Gdk.Paintable? create_widget_paintable (Gtk.Widget widget, ref Graphene.Point point, string? title = null, int max_size = 64) {

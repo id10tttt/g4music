@@ -15,6 +15,9 @@ namespace G4 {
         public Window (Application app) {
             Object (application: app);
 
+            Gtk.IconTheme.get_for_display (display).add_resource_path (
+                "/com/github/neithern/g4music/icons");
+
             this.icon_name = app.application_id;
             this.title = app.name;
             this.width_request = ContentWidth.MIN;
@@ -31,6 +34,7 @@ namespace G4 {
                 { ACTION_SAVE_LIST, save_list },
                 { ACTION_SEARCH, search_by, "as" },
                 { ACTION_SELECT, start_select },
+                { ACTION_TOGGLE_FULLSCREEN, toggle_fullscreen },
                 { ACTION_TOGGLE_SEARCH, toggle_search },
             };
             add_action_entries (action_entries, this);
@@ -50,12 +54,15 @@ namespace G4 {
 
             _play_panel = new PlayPanel (app, this, _leaflet);
             _play_panel.cover_changed.connect (on_cover_changed);
+            _play_panel.fullscreen_requested.connect (set_fullscreen_visible);
 
             _leaflet.content = _play_panel;
             _leaflet.sidebar = _store_panel;
 
             setup_drop_target ();
             setup_focus_controller ();
+            setup_fullscreen_controller ();
+            notify["fullscreened"].connect (on_fullscreen_changed);
 
             var settings = app.settings;
             settings.bind ("leaflet-mode", _leaflet, "visible-mode", SettingsBindFlags.DEFAULT);
@@ -259,6 +266,37 @@ namespace G4 {
             this.content.add_controller (controller);
             this.bind_property ("focus_visible", this, "focused_visible");
             this.bind_property ("focus_widget", this, "focused_widget");
+        }
+
+        private void setup_fullscreen_controller () {
+            var controller = new Gtk.EventControllerKey ();
+            controller.key_pressed.connect ((keyval, keycode, state) => {
+                if (fullscreened && keyval == Gdk.Key.Escape) {
+                    set_fullscreen_visible (false);
+                    return true;
+                }
+                return false;
+            });
+            this.content.add_controller (controller);
+        }
+
+        private void toggle_fullscreen () {
+            set_fullscreen_visible (!fullscreened);
+        }
+
+        private void set_fullscreen_visible (bool visible) {
+            if (visible)
+                fullscreen ();
+            else
+                unfullscreen ();
+        }
+
+        /**
+         * 以窗口管理器确认的全屏状态同步播放页和侧栏布局。
+         */
+        private void on_fullscreen_changed () {
+            _leaflet.content_only = fullscreened;
+            _play_panel.fullscreen_mode = fullscreened;
         }
 
         private void button_command (SimpleAction action, Variant? parameter) {

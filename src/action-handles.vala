@@ -28,6 +28,7 @@ namespace G4 {
     public const string ACTION_BUTTON = "button";
     public const string ACTION_SEARCH = "search";
     public const string ACTION_SELECT = "select";
+    public const string ACTION_TOGGLE_FULLSCREEN = "toggle-fullscreen";
     public const string ACTION_TOGGLE_SEARCH = "toggle-search";
 
     struct ActionShortKey {
@@ -81,6 +82,7 @@ namespace G4 {
             }
 
             ActionShortKey[] win_keys = {
+                { ACTION_TOGGLE_FULLSCREEN, "F11" },
                 { ACTION_SAVE_LIST, "<primary>s" },
                 { ACTION_TOGGLE_SEARCH, "<primary>f" },
             };

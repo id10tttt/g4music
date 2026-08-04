@@ -40,6 +40,12 @@
             <property name="title" translatable="yes" context="shortcut window">Playback</property>
             <child>
               <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes" context="shortcut window">Toggle Fullscreen</property>
+                <property name="action-name">win.toggle-fullscreen</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
                 <property name="title" translatable="yes" context="shortcut window">Play/Pause</property>
                 <property name="action-name">app.play-pause</property>
               </object>

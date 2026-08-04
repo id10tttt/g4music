@@ -26,3 +26,42 @@ tabbar revealer box {
     box-shadow: none;
     background-color: transparent;
 }
+
+.lyrics-view {
+    background: transparent;
+}
+
+.lyrics-line {
+    padding: 6px 4px;
+    font-size: 105%;
+    opacity: 0.22;
+    transition: opacity 200ms ease;
+}
+
+.lyrics-near {
+    opacity: 0.55;
+}
+
+.lyrics-far {
+    opacity: 0.35;
+}
+
+.lyrics-current {
+    color: @accent_color;
+    font-size: 125%;
+    font-weight: 600;
+    opacity: 1;
+}
+
+.fullscreen-player {
+    color: white;
+    background-color: rgba(0, 0, 0, 0.24);
+}
+
+.fullscreen-player .lyrics-line {
+    font-size: 140%;
+}
+
+.fullscreen-player .lyrics-current {
+    font-size: 175%;
+}

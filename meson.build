@@ -54,6 +54,8 @@ posix_dep = vala_compiler.find_library('posix', required: false)
 dependencies = [
   dependency('gstreamer-1.0'),
   dependency('gstreamer-tag-1.0'),
+  dependency('json-glib-1.0'),
+  dependency('libsoup-3.0'),
   adw_dep,
   libm_dep,
   posix_dep,
@@ -62,6 +64,20 @@ dependencies = [
 subdir('data')
 subdir('po')
 subdir('src')
+
+lyrics_parser_test = executable(
+  'lyrics-parser-test',
+  [
+    'tests/lyrics-parser-test.vala',
+    'src/utils/lrc-parser.vala',
+  ],
+  dependencies: [
+    dependency('glib-2.0'),
+    dependency('gobject-2.0'),
+  ],
+)
+
+test('lyrics-parser', lyrics_parser_test)
 
 gnome.post_install(
   glib_compile_schemas: true,
