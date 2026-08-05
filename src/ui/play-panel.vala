@@ -48,6 +48,9 @@ namespace G4 {
         private int _current_duration_seconds = 0;
         private Cancellable? _lyrics_cancellable = null;
         private uint _lyrics_duration_wait_handle = 0;
+        private bool _online_lyrics_loading = false;
+        private bool _lyrics_retry_when_duration_ready = false;
+        private int _lyrics_request_duration_seconds = 0;
 
         public signal void cover_changed (Music? music, CrossFadePaintable cover);
         public signal void fullscreen_requested (bool visible);
@@ -226,6 +229,7 @@ namespace G4 {
                 _matrix_paintable.rotation = 0;
                 _lyrics_view.update_position (
                     (int64) (_app.player.position / Gst.MSECOND));
+                _lyrics_view.recenter_current ();
             } else {
                 _fullscreen_left.remove (music_info);
                 _fullscreen_left.remove (_play_bar);
@@ -254,6 +258,8 @@ namespace G4 {
                 music_info.margin_start = 16;
                 music_info.margin_end = 16;
                 music_info.margin_top = 8;
+                if (_normal_lyrics_visible)
+                    _lyrics_view.recenter_current ();
             }
         }
 
@@ -386,6 +392,7 @@ namespace G4 {
             if (show_lyrics) {
                 _lyrics_view.update_position (
                     (int64) (_app.player.position / Gst.MSECOND));
+                _lyrics_view.recenter_current ();
             }
         }
 
@@ -408,14 +415,25 @@ namespace G4 {
                 return;
 
             _current_duration_seconds = (int) (GstPlayer.to_second (duration) + 0.5);
-            if (_current_duration_seconds <= 0 || _lyrics_duration_wait_handle == 0)
+            if (_current_duration_seconds <= 0)
                 return;
 
-            Source.remove (_lyrics_duration_wait_handle);
-            _lyrics_duration_wait_handle = 0;
             var cancellable = _lyrics_cancellable;
-            if (cancellable != null && is_current_lyrics_request ((!) music, (!) cancellable))
+            if (cancellable == null
+                    || !is_current_lyrics_request ((!) music, (!) cancellable))
+                return;
+
+            if (_lyrics_duration_wait_handle != 0) {
+                Source.remove (_lyrics_duration_wait_handle);
+                _lyrics_duration_wait_handle = 0;
                 load_online_lyrics.begin ((!) music, (!) cancellable);
+            } else if (_online_lyrics_loading
+                    && _lyrics_request_duration_seconds <= 0) {
+                _lyrics_retry_when_duration_ready = true;
+            } else if (_lyrics_retry_when_duration_ready) {
+                _lyrics_retry_when_duration_ready = false;
+                load_online_lyrics.begin ((!) music, (!) cancellable);
+            }
         }
 
         private void on_position_updated (Gst.ClockTime position) {
@@ -521,15 +539,34 @@ namespace G4 {
         }
 
         private async void load_online_lyrics (Music music, Cancellable cancellable) {
+            if (_online_lyrics_loading) {
+                if (_lyrics_request_duration_seconds <= 0
+                        && _current_duration_seconds > 0)
+                    _lyrics_retry_when_duration_ready = true;
+                return;
+            }
+
+            var request_duration_seconds = _current_duration_seconds;
+            _online_lyrics_loading = true;
+            _lyrics_request_duration_seconds = request_duration_seconds;
             var lines = yield _lyrics_provider.fetch_online (
-                music, _current_duration_seconds, cancellable);
+                music, request_duration_seconds, cancellable);
             if (!is_current_lyrics_request (music, cancellable))
                 return;
 
-            if (lines != null)
+            _online_lyrics_loading = false;
+            _lyrics_request_duration_seconds = 0;
+            if (lines != null) {
+                _lyrics_retry_when_duration_ready = false;
                 _lyrics_view.set_lyrics ((!) lines);
-            else
+            } else if (request_duration_seconds <= 0
+                    && _current_duration_seconds > 0) {
+                _lyrics_retry_when_duration_ready = false;
+                load_online_lyrics.begin (music, cancellable);
+            } else {
+                _lyrics_retry_when_duration_ready = request_duration_seconds <= 0;
                 _lyrics_view.set_no_lyrics ();
+            }
         }
 
         private bool is_current_lyrics_request (Music music, Cancellable cancellable) {
@@ -541,6 +578,9 @@ namespace G4 {
         private void cancel_lyrics_load () {
             _lyrics_cancellable?.cancel ();
             _lyrics_cancellable = null;
+            _online_lyrics_loading = false;
+            _lyrics_retry_when_duration_ready = false;
+            _lyrics_request_duration_seconds = 0;
             if (_lyrics_duration_wait_handle != 0) {
                 Source.remove (_lyrics_duration_wait_handle);
                 _lyrics_duration_wait_handle = 0;

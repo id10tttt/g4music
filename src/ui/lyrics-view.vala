@@ -2,17 +2,18 @@ namespace G4 {
 
     public class LyricsView : Gtk.Box {
         private const int64 MANUAL_SCROLL_PAUSE_US = 5 * 1000 * 1000;
-        private const int FOCUSED_LINE_COUNT = 5;
-        private const int MIN_LINE_HEIGHT = 52;
 
         private Gtk.ScrolledWindow _scroll;
         private Gtk.Box _lyrics_box;
+        private Gtk.Box _top_spacer;
+        private Gtk.Box _bottom_spacer;
         private Gtk.Label _status_label;
         private GenericArray<LyricLine> _lines = new GenericArray<LyricLine> ();
         private Gtk.Label[] _labels = {};
         private int _current_index = -1;
         private int64 _manual_scroll_until = 0;
         private uint _resume_scroll_handle = 0;
+        private uint _recenter_handle = 0;
         private Adw.Animation? _scroll_animation = null;
 
         public LyricsView () {
@@ -23,10 +24,13 @@ namespace G4 {
             _lyrics_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
             _lyrics_box.halign = Gtk.Align.FILL;
             _lyrics_box.hexpand = true;
-            _lyrics_box.margin_top = 32;
-            _lyrics_box.margin_bottom = 48;
+            _lyrics_box.margin_top = 0;
+            _lyrics_box.margin_bottom = 0;
             _lyrics_box.margin_start = 24;
             _lyrics_box.margin_end = 24;
+
+            _top_spacer = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+            _bottom_spacer = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
 
             _status_label = new Gtk.Label ("");
             _status_label.halign = Gtk.Align.CENTER;
@@ -48,7 +52,10 @@ namespace G4 {
             _scroll.vexpand = true;
             _scroll.child = viewport;
             append (_scroll);
-            _scroll.notify["height"].connect (update_line_layout);
+            _scroll.notify["height"].connect (() => {
+                update_edge_spacers ();
+                recenter_current ();
+            });
 
             var scroll_controller = new Gtk.EventControllerScroll (
                 Gtk.EventControllerScrollFlags.BOTH_AXES);
@@ -83,6 +90,7 @@ namespace G4 {
                 return;
             }
 
+            _lyrics_box.append (_top_spacer);
             _labels = new Gtk.Label[lines.length];
             for (var index = 0; index < lines.length; index++) {
                 var text = lines[index].text;
@@ -100,8 +108,9 @@ namespace G4 {
                 _lyrics_box.append (label);
                 _labels[index] = label;
             }
+            _lyrics_box.append (_bottom_spacer);
             _scroll.vadjustment.value = 0;
-            update_line_layout ();
+            update_edge_spacers ();
         }
 
         /**
@@ -130,11 +139,29 @@ namespace G4 {
             if (_current_index >= 0 && _current_index < _labels.length) {
                 update_line_styles ();
                 if (get_monotonic_time () >= _manual_scroll_until)
-                    scroll_to_label (_labels[_current_index]);
+                    recenter_current ();
             } else {
                 update_line_styles ();
             }
             return true;
+        }
+
+        /**
+         * 在布局稳定后将当前歌词重新定位到视口中央。
+         */
+        public void recenter_current () {
+            if (_current_index < 0 || _current_index >= _labels.length
+                    || get_monotonic_time () < _manual_scroll_until)
+                return;
+            if (_recenter_handle != 0)
+                Source.remove (_recenter_handle);
+            _recenter_handle = Idle.add (() => {
+                _recenter_handle = 0;
+                if (_current_index >= 0 && _current_index < _labels.length
+                        && get_monotonic_time () >= _manual_scroll_until)
+                    scroll_to_label (_labels[_current_index]);
+                return false;
+            });
         }
 
         private void pause_auto_scroll () {
@@ -147,7 +174,7 @@ namespace G4 {
                 _resume_scroll_handle = 0;
                 _manual_scroll_until = 0;
                 if (_current_index >= 0 && _current_index < _labels.length)
-                    scroll_to_label (_labels[_current_index]);
+                    recenter_current ();
                 return false;
             });
         }
@@ -161,10 +188,14 @@ namespace G4 {
                 Source.remove (_resume_scroll_handle);
                 _resume_scroll_handle = 0;
             }
+            if (_recenter_handle != 0) {
+                Source.remove (_recenter_handle);
+                _recenter_handle = 0;
+            }
             _scroll_animation?.pause ();
             _scroll_animation = null;
-            _lyrics_box.margin_top = 32;
-            _lyrics_box.margin_bottom = 48;
+            _lyrics_box.margin_top = 0;
+            _lyrics_box.margin_bottom = 0;
 
             var child = _lyrics_box.get_first_child ();
             while (child != null) {
@@ -175,20 +206,15 @@ namespace G4 {
         }
 
         /**
-         * 根据歌词视口高度调整行距，使自动跟随时聚焦当前行前后各两行。
+         * 为列表首尾保留半屏空间，确保边缘歌词也能滚动到中央。
          */
-        private void update_line_layout () {
+        private void update_edge_spacers () {
             var viewport_height = _scroll.get_height ();
-            if (_labels.length == 0 || viewport_height <= 0)
+            if (viewport_height <= 0)
                 return;
-
-            var line_height = int.max (MIN_LINE_HEIGHT,
-                viewport_height / FOCUSED_LINE_COUNT);
-            var edge_margin = int.max (32, (viewport_height - line_height) / 2);
-            _lyrics_box.margin_top = edge_margin;
-            _lyrics_box.margin_bottom = edge_margin;
-            foreach (var label in _labels)
-                label.height_request = line_height;
+            var spacer_height = viewport_height / 2;
+            _top_spacer.height_request = spacer_height;
+            _bottom_spacer.height_request = spacer_height;
         }
 
         /**

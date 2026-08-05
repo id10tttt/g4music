@@ -32,6 +32,7 @@ tabbar revealer box {
 }
 
 .lyrics-line {
+    min-height: 52px;
     padding: 6px 4px;
     font-size: 105%;
     opacity: 0.22;
@@ -59,6 +60,7 @@ tabbar revealer box {
 }
 
 .fullscreen-player .lyrics-line {
+    min-height: 72px;
     font-size: 140%;
 }
 
