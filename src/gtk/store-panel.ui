@@ -41,6 +41,13 @@
               </object>
             </child>
             <child>
+              <object class="GtkButton" id="reshuffle_btn">
+                <property name="icon_name">view-refresh-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Reshuffle</property>
+                <property name="visible">false</property>
+              </object>
+            </child>
+            <child>
               <object class="GtkLabel" id="indicator">
                 <property name="label">•</property>
                 <property name="margin-start">4</property>

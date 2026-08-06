@@ -33,6 +33,8 @@ namespace G4 {
         [GtkChild]
         private unowned Gtk.MenuButton sort_btn;
         [GtkChild]
+        private unowned Gtk.Button reshuffle_btn;
+        [GtkChild]
         private unowned Gtk.ToggleButton search_btn;
         [GtkChild]
         private unowned Gtk.SearchBar search_bar;
@@ -76,6 +78,9 @@ namespace G4 {
             search_btn.toggled.connect (on_search_btn_toggled);
             search_bar.key_capture_widget = win.content;
             search_entry.search_changed.connect (on_search_text_changed);
+            reshuffle_btn.clicked.connect (() => {
+                sort_music_store (_app.music_queue, SortMode.SHUFFLE);
+            });
 
             _main_list = create_main_music_list ();
             _main_list.data_store = _app.music_queue;
@@ -162,6 +167,7 @@ namespace G4 {
                 _sort_mode = value;
                 if (value < SORT_MODE_ICONS.length)
                     sort_btn.set_icon_name (SORT_MODE_ICONS[value]);
+                update_reshuffle_btn_visibility ();
                 if (_main_list.get_height () > 0)
                     _main_list.create_factory ();
             }
@@ -183,6 +189,7 @@ namespace G4 {
                     var list = _current_list = (MusicList) value;
                     indicator.visible = _current_list.modified;
                     sort_btn.visible = _current_list == _main_list;
+                    update_reshuffle_btn_visibility ();
                     _search_mode = SearchMode.ANY;
                     on_search_btn_toggled ();
 
@@ -258,6 +265,10 @@ namespace G4 {
         public bool toggle_search () {
             search_btn.active = ! search_btn.active;
             return search_btn.active;
+        }
+
+        private void update_reshuffle_btn_visibility () {
+            reshuffle_btn.visible = _current_list == _main_list && _sort_mode == SortMode.SHUFFLE;
         }
 
         private void bind_music_list_properties (MusicList list, bool editable = false) {
